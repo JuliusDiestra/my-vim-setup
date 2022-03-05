@@ -1,5 +1,6 @@
 " Syntax highlights
 syntax on
+colorscheme koehler
 
 " compatible is set to on by default. While a .vimrc file is found, is set to off. 
 " But, it is added just in case.
@@ -53,7 +54,7 @@ set scrolloff=15
 " Jumps while I press ctrl-u and ctrl-d
 set scroll=10
 
-set signcolumn=yes
+"set signcolumn=yes
 
 
 " More space to display messages
