@@ -6,6 +6,9 @@ colorscheme torte
 " But, it is added just in case.
 set nocompatible
 
+" Adding spelling check
+set spell
+
 " Provides tab-completition for all file-related tasks
 set path+=**
 "set path+=/usr/include/c++/7
