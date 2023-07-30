@@ -1,6 +1,6 @@
 " Syntax highlights
 syntax on
-colorscheme ron
+colorscheme torte
 
 " compatible is set to on by default. While a .vimrc file is found, is set to off.
 " But, it is added just in case.
@@ -147,7 +147,8 @@ call plug#end()
 au BufEnter *.h  let b:fswitchdst = "c,cpp,cc,m"
 au BufEnter *.cc let b:fswitchdst = "h,hpp"
 au BufEnter *.h let b:fswitchdst = 'c,cpp,m,cc' | let b:fswitchlocs = 'reg:|include.*|src/**|'
-nnoremap <silent> <A-o> :FSHere<cr>
+" nnoremap <silent> <A-o> :FSHere<cr>
+nnoremap <silent> <localleader>oo :FSHere<cr>
 " Extra hotkeys to open header/source in the split
 "       Works using: \oh \oj \ok \ol
 nnoremap <silent> <localleader>oh :FSSplitLeft<cr>
@@ -155,8 +156,22 @@ nnoremap <silent> <localleader>oj :FSSplitBelow<cr>
 nnoremap <silent> <localleader>ok :FSSplitAbove<cr>
 nnoremap <silent> <localleader>ol :FSSplitRight<cr>
 
+" ############################
+" Clang-format
+" ############################
+map <C-K> :py3f /usr/share/clang/clang-format-15/clang-format.py<cr>
+imap <C-K> <c-o>:py3f /usr/share/clang/clang-format-15/clang-format.py<cr>
+
+function! s:ClangFormatFile()
+    let l:lines="all"
+    py3f /usr/share/clang/clang-format-15/clang-format.py
+endfunction
+command! ClangFormatFile :call s:ClangFormatFile()
+au FileType cpp nnoremap <silent> <localleader>cff :ClangFormatFile<cr>
+
 " #########################
 " ctags settings
 " #########################
 " Installing: sudo snap install universal-ctags
 " PENDING
+set tags=./tags;
