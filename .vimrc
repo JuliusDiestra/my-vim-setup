@@ -1,5 +1,13 @@
+" ##################################
+" General settings
+" ##################################
+
 " Syntax highlights
 syntax on
+
+" Filetype settings
+filetype on
+filetype plugin on
 
 " Colors settings
 colorscheme torte
@@ -59,12 +67,13 @@ set cmdheight=2
 
 set backspace=indent,eol,start
 
+" ###############################################
 " YAML file configuration : auto-identation
+" ###############################################
 augroup yaml_fix
     autocmd!
     autocmd FileType yaml,yml setlocal ts=2 sts=2 sw=2 expandtab indentkeys-=0# indentkeys-=<:>
 augroup END
-
 
 " ##################################
 " NETRW settings
@@ -77,7 +86,7 @@ let g:netrw_winsize = 25
 let g:netrw_localrmdir='rm -r'  " To be able to remove directories and files inside pressing D
 
 " ##########################################
-" White spaces
+" Remove White spaces
 " -> Press \rs to remove all empty spaces.
 " #########################################
 " White spaces in red
