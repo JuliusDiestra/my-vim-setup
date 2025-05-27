@@ -142,70 +142,146 @@ endfunction
 command! ClangFormatFile :call s:ClangFormatFile()
 au FileType cpp nnoremap <silent> <localleader>cff :ClangFormatFile<cr>
 
-" ################################################
-" Plugin manager
-" -> Automatic installation of vim plugin manager
-" ################################################
-let data_dir = has('nvim') ? stdpath('data') . '/site' : '~/.vim'
-if empty(glob(data_dir . '/autoload/plug.vim'))
-  silent execute '!curl -fLo '.data_dir.'/autoload/plug.vim --create-dirs  https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim'
-  autocmd VimEnter * PlugInstall --sync | source $MYVIMRC
-endif
 
-" #####################################################
-" Plugins Installation
-" -> Run :PlugInstall to install all plugins I need.
-" #####################################################
-call plug#begin()
+" ############################
+" Go to File : Go over the file name/header file.
+" -> Same window : gf
+" -> Split vertical : \gv
+" -> Split horizontal : \gs
+" ############################
 
-Plug 'derekwyatt/vim-fswitch'           " Plugin to jump between .hpp and .cpp files
-Plug 'vim-scripts/OmniCppComplete'
-Plug 'JuliusDiestra/modified-cpp-headers'
+" Recognize these suffixes when using gf
+set suffixesadd=.h,.hpp,.cpp,.cc,.cxx
 
-call plug#end()
+" OLD SIMPLE Setting- Use shorcuts for gf with vertical and horizontal splt
+" nnoremap <Leader>gs :sfind <C-R>=expand("<cfile>")<CR><CR>
+" nnoremap <Leader>gv :vert sfind <C-R>=expand("<cfile>")<CR><CR>
 
-" ##############################################
-" Plugin vim-fswitch settings
-" -> Jump from hpp->cpp or cpp->hpp file using:
-"    \oh : Open new window to the left.
-"    \oj : Open new window below.
-"    \ok : Open new window above.
-"    \ol : Open new window to the right.
-"    \oo : Open in same window.
-" ###############################################
-au BufEnter *.h  let b:fswitchdst = "c,cpp,cc,m"
-au BufEnter *.cc let b:fswitchdst = "h,hpp"
-au BufEnter *.h let b:fswitchdst = 'c,cpp,m,cc' | let b:fswitchlocs = 'reg:|include.*|src/**|'
-" nnoremap <silent> <A-o> :FSHere<cr>
-nnoremap <silent> <localleader>oo :FSHere<cr>
-nnoremap <silent> <localleader>oh :FSSplitLeft<cr>
-nnoremap <silent> <localleader>oj :FSSplitBelow<cr>
-nnoremap <silent> <localleader>ok :FSSplitAbove<cr>
-nnoremap <silent> <localleader>ol :FSSplitRight<cr>
+" Function to find and open a file under cursor with :split or :vsplit
 
-" ############################################################
-" OmniCppComplete
-" ############################################################
-au BufNewFile,BufRead,BufEnter *.cpp,*.hpp set omnifunc=omni#cpp#complete#Main
-filetype on
+function! FindAndSplitFile(split_cmd)
+    let l:file = expand("<cfile>")
+    let l:matches = split(globpath(&path, l:file), "\n")
 
-" configure tags - add additional tags here or comment out not-used ones
-set tags+=./tags
-set tags+=~/.vim/plugged/modified-cpp-headers/gcc_9_tags
-" build tags of your own project with Ctrl-F12
-map <C-F12> :!ctags -R --sort=yes --c++-kinds=+p --fields=+iaS --extra=+q -I _GLIBCXX_NOEXCEPT .<CR>
+    " Normalize and deduplicate the results
+    let l:unique = {}
+    let l:deduped = []
 
-" OmniCppComplete
-let OmniCpp_NamespaceSearch = 1
-let OmniCpp_GlobalScopeSearch = 1
-let OmniCpp_ShowAccess = 1
-let OmniCpp_ShowPrototypeInAbbr = 1 " show function parameters
-let OmniCpp_MayCompleteDot = 1 " autocomplete after .
-let OmniCpp_MayCompleteArrow = 1 " autocomplete after ->
-let OmniCpp_MayCompleteScope = 1 " autocomplete after ::
-" also necessary for fixing LIBSTDC++ releated stuff
-let OmniCpp_DefaultNamespaces = ["std", "_GLIBCXX_STD"]
-" automatically open and close the popup menu / preview window
-au CursorMovedI,InsertLeave * if pumvisible() == 0|silent! pclose|endif
-set completeopt=menuone,menu,longest,preview
+    for path in l:matches
+        let l:real = resolve(fnamemodify(path, ':p')) " get absolute resolved path
+        if !has_key(l:unique, l:real)
+            let l:unique[l:real] = 1
+            call add(l:deduped, path)
+        endif
+    endfor
+
+    if empty(l:deduped)
+        echohl WarningMsg | echo "File not found: " . l:file | echohl None
+        return
+    endif
+
+    if len(l:deduped) == 1
+        execute a:split_cmd . ' ' . fnameescape(l:deduped[0])
+        return
+    endif
+
+    let l:choices = ['Choose a file:']
+    for i in range(len(l:deduped))
+        call add(l:choices, printf('%d. %s', i + 1, l:deduped[i]))
+    endfor
+
+    let l:choice = inputlist(l:choices)
+
+    if l:choice >= 1 && l:choice <= len(l:deduped)
+        execute a:split_cmd . ' ' . fnameescape(l:deduped[l:choice - 1])
+    else
+        echo "No file selected."
+    endif
+endfunction
+
+" Key mappings
+nnoremap <Leader>gs :call FindAndSplitFile('split')<CR>
+nnoremap <Leader>gv :call FindAndSplitFile('vsplit')<CR>
+
+
+" ############################
+" Switch between header and source files
+" <Leader>oo → Open in same window
+" <Leader>oj → Split below
+" <Leader>ok → Split above
+" <Leader>ol → Vertical split right
+" <Leader>oh → Vertical split left
+" ############################
+
+set splitbelow
+set splitright
+
+function! ToggleSourceHeader(mode)
+    let l:filename = expand('%:t')        " e.g., my_file.hpp
+    let l:basename = expand('%:t:r')      " e.g., my_file
+    let l:ext = expand('%:e')             " e.g., hpp
+    let l:current_dir = expand('%:p:h')   " full path to current file's directory
+    let l:parent_dir = fnamemodify(l:current_dir, ':h') " one directory up
+
+    let l:headers = ['h', 'hpp']
+    let l:sources = ['cpp', 'cc', 'cxx', 'c']
+
+    if index(l:headers, l:ext) >= 0
+        let l:extensions = l:sources
+    elseif index(l:sources, l:ext) >= 0
+        let l:extensions = l:headers
+    else
+        echo "Not a recognized C++ source/header file"
+        return
+    endif
+
+    " Step 1: current directory (non-recursive)
+    for ext in l:extensions
+        let l:path = l:current_dir . '/' . l:basename . '.' . ext
+        if filereadable(l:path)
+            execute a:mode . ' ' . fnameescape(l:path)
+            return
+        endif
+    endfor
+
+    " Step 2 & 3: ../include, ../inc, ../src (recursive)
+    let l:search_dirs = ['include', 'inc', 'src']
+    for dir in l:search_dirs
+        let l:basepath = l:parent_dir . '/' . dir
+        for ext in l:extensions
+            let l:pattern = l:basepath . '/**/' . l:basename . '.' . ext
+            let l:found = glob(l:pattern, 0, 1)
+            if !empty(l:found)
+                execute a:mode . ' ' . fnameescape(l:found[0])
+                return
+            endif
+        endfor
+    endfor
+
+    " Step 4: full recursive fallback search
+    for ext in l:extensions
+        let l:pattern = '**/' . l:basename . '.' . ext
+        let l:found = glob(l:pattern, 0, 1)
+        if !empty(l:found)
+            execute a:mode . ' ' . fnameescape(l:found[0])
+            return
+        endif
+    endfor
+
+    " Offer to create the file in current directory
+    let l:new_ext = l:extensions[0]
+    let l:new_path = l:current_dir . '/' . l:basename . '.' . l:new_ext
+    if confirm("File not found. Create " . l:new_path . "?", "&Yes\n&No") == 1
+        call mkdir(fnamemodify(l:new_path, ':h'), 'p')
+        execute a:mode . ' ' . fnameescape(l:new_path)
+    else
+        echo "Aborted."
+    endif
+endfunction
+
+nnoremap <Leader>oo :call ToggleSourceHeader('edit')<CR>
+nnoremap <Leader>oj :call ToggleSourceHeader('split')<CR>
+nnoremap <Leader>ok :call ToggleSourceHeader('aboveleft split')<CR>
+nnoremap <Leader>ol :call ToggleSourceHeader('vsplit')<CR>
+nnoremap <Leader>oh :call ToggleSourceHeader('aboveleft vsplit')<CR>
 
